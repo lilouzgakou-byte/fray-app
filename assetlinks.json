@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.fray.app",
+    "sha256_cert_fingerprints": [
+      "67:64:99:18:9D:65:7B:2C:10:DC:3E:CA:BE:33:64:06:3A:EC:F2:35:87:C7:2D:65:30:75:F7:37:C5:1E:D0:AD"
+    ]
+  }
+}]
