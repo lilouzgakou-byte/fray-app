@@ -6,21 +6,68 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+
     - uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-    - name: Make gradlew executable
-      run: chmod +x gradlew
-    - name: Build APK
-      run: ./gradlew assembleRelease
-      env:
-        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+    - name: Install Bubblewrap
+      run: npm install -g @bubblewrap/cli
+
+    - name: Install Android SDK cmdline-tools
+      run: |
+        sudo apt-get install -y wget unzip
+        mkdir -p $HOME/android-sdk/cmdline-tools
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        unzip -q commandlinetools-linux-9477386_latest.zip -d $HOME/android-sdk/cmdline-tools
+        mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
+        echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+        echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+        echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
+
+    - name: Accept licenses & install SDK
+      run: |
+        yes | sdkmanager --licenses || true
+        sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+
+    - name: Init Bubblewrap TWA project
+      run: |
+        mkdir fray-twa && cd fray-twa
+        bubblewrap init --manifest https://app.kaana-bi.com/manifest.json \
+          --directory . \
+          --packageId com.fray.app \
+          --name "FRAY" \
+          --launchUrl "https://app.kaana-bi.com" \
+          --iconUrl "https://app.kaana-bi.com/icons/icon-512x512.png" \
+          --maskableIconUrl "https://app.kaana-bi.com/icons/icon-512x512.png" \
+          --backgroundColor "#FF6B2B" \
+          --themeColor "#FF6B2B" \
+          --signingKeyPath ../fray.keystore \
+          --signingKeyAlias fray \
+          --signingKeyPassword fray2026 \
+          --signingStorePassword fray2026 || true
+
+    - name: Generate Keystore
+      run: |
+        keytool -genkeypair -v \
+          -keystore fray.keystore \
+          -alias fray \
+          -keyalg RSA -keysize 2048 -validity 10000 \
+          -storepass fray2026 -keypass fray2026 \
+          -dname "CN=FRAY,O=FRAY Restaurant,C=FR"
+
+    - name: Build APK with Bubblewrap
+      run: |
+        cd fray-twa
+        bubblewrap build \
+          --signingKeyPath ../fray.keystore \
+          --signingKeyAlias fray \
+          --signingKeyPassword fray2026 \
+          --signingStorePassword fray2026
+
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: FRAY-APK
-        path: app/build/outputs/apk/release/app-release.apk
+        path: fray-twa/app-release-signed.apk
